@@ -29,4 +29,25 @@ public class DeagleHsOnlyPlugin : BasePlugin
             return HookResult.Continue;
 
         var pawn = victim.PlayerPawn.Value;
-        if
+        if (!pawn.IsValid)
+            return HookResult.Continue;
+
+        bool isHeadshot = @event.Hitgroup == HITGROUP_HEAD;
+        int dmgHealth = @event.DmgHealth;
+
+        Logger.LogInformation("[DeagleHsOnly] hitgroup=" + @event.Hitgroup + " weapon=" + @event.Weapon + " dmgHealth=" + dmgHealth + " healthBefore=" + pawn.Health);
+
+        if (!isHeadshot && dmgHealth > 0)
+        {
+            int newHealth = pawn.Health + dmgHealth;
+            if (newHealth > 100) newHealth = 100;
+
+            pawn.Health = newHealth;
+            Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
+
+            Logger.LogInformation("[DeagleHsOnly] restored health to " + newHealth);
+        }
+
+        return HookResult.Continue;
+    }
+}

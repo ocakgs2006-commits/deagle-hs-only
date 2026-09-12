@@ -10,17 +10,18 @@ namespace DeagleHsOnly;
 public class DeagleHsOnlyPlugin : BasePlugin
 {
     public override string ModuleName => "Deagle HS Only";
-    public override string ModuleVersion => "3.0.0";
+    public override string ModuleVersion => "3.1.0";
     public override string ModuleAuthor => "Custom";
-    public override string ModuleDescription => "Deagle: only headshots deal damage. Everyone also has infinite ammo (clip never empties).";
+    public override string ModuleDescription => "Deagle: only headshots deal damage. Reserve ammo never runs out (clip still empties/reloads normally).";
 
     private const int HITGROUP_HEAD = 1;
+    private const int FixedReserveAmmo = 999;
 
     public override void Load(bool hotReload)
     {
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt, HookMode.Post);
         RegisterListener<Listeners.OnTick>(OnTick);
-        Logger.LogInformation("[DeagleHsOnly] Plugin loaded v3.0.0 (infinite ammo)");
+        Logger.LogInformation("[DeagleHsOnly] Plugin loaded v3.1.0 (infinite reserve ammo)");
     }
 
     private void OnTick()
@@ -42,14 +43,10 @@ public class DeagleHsOnlyPlugin : BasePlugin
             if (activeWeapon == null || !activeWeapon.IsValid)
                 continue;
 
-            var vdata = activeWeapon.VData;
-            if (vdata == null)
-                continue;
-
-            if (vdata.MaxClip1 > 0 && activeWeapon.Clip1 < vdata.MaxClip1)
+            if (activeWeapon.ReserveAmmo[0] < FixedReserveAmmo)
             {
-                activeWeapon.Clip1 = vdata.MaxClip1;
-                Utilities.SetStateChanged(activeWeapon, "CBasePlayerWeapon", "m_iClip1");
+                activeWeapon.ReserveAmmo[0] = FixedReserveAmmo;
+                Utilities.SetStateChanged(activeWeapon, "CBasePlayerWeapon", "m_pReserveAmmo");
             }
         }
     }

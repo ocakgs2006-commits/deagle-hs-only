@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>DeagleHsOnly</AssemblyName>
+    <RootNamespace>DeagleHsOnly</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NOT: CounterStrikeSharp.API paketinin en guncel surumunu kullanmak icin
+         Version degerini nuget.org uzerinden kontrol edip guncelleyebilirsin -->
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.298" />
+  </ItemGroup>
+
+</Project>

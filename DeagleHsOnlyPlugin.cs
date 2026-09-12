@@ -1,83 +1,59 @@
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Attributes;
+using CounterStrikeSharp.API.Modules.Utils;
+using Microsoft.Extensions.Logging;
 
 namespace DeagleHsOnly;
 
+[MinimumApiVersion(80)]
 public class DeagleHsOnlyPlugin : BasePlugin
 {
     public override string ModuleName => "Deagle HS Only";
-    public override string ModuleVersion => "2.1.0";
+    public override string ModuleVersion => "2.0.0";
     public override string ModuleAuthor => "Custom";
-    public override string ModuleDescription =>
-        "Deagle sadece headshot ile hasar verir; body/kol/bacak vurusları tamamen engellenir. Diger silahlar (AWP dahil) etkilenmez.";
+    public override string ModuleDescription => "Only headshots deal damage. All other hits pass through with zero damage (health is restored instantly).";
 
-    // Konsola detay yazar. Sorun kalmadigindan emin olunca false yapip yeniden derle.
-    private const bool DEBUG = true;
+    // true  -> rule only applies to Deagle hits (other weapons behave normally)
+    // false -> rule applies to EVERY weapon (any non-headshot hit anywhere = 0 damage)
+    private const bool OnlyRestrictDeagle = true;
+
+    // CS2 hitgroup constant for the head.
+    private const int HITGROUP_HEAD = 1;
 
     public override void Load(bool hotReload)
     {
-        RegisterListener<Listeners.OnEntityTakeDamagePre>(OnTakeDamagePre);
-        System.Console.WriteLine("[DeagleHsOnly] Plugin yuklendi (pre-damage hook aktif) v2.1.0.");
+        RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt, HookMode.Post);
+        Logger.LogInformation("[DeagleHsOnly] Plugin loaded. OnlyRestrictDeagle = {Flag}", OnlyRestrictDeagle);
     }
 
-    private HookResult OnTakeDamagePre(CBaseEntity entity, CTakeDamageInfo info)
+    private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
     {
-        try
-        {
-            // Sadece oyunculara gelen hasarla ilgilen
-            if (entity.DesignerName != "player")
-                return HookResult.Continue;
-
-            string weaponName = GetAttackerActiveWeapon(info);
-
-            if (DEBUG)
-            {
-                System.Console.WriteLine(
-                    $"[DeagleHsOnly] Hasar -> AktifSilah={weaponName} Hitgroup={info.GetHitGroup()} Damage={info.Damage}");
-            }
-
-            // Sadece Deagle icin devreye gir
-            if (string.IsNullOrEmpty(weaponName) || !weaponName.Contains("deagle"))
-                return HookResult.Continue;
-
-            // Kafadan vurduysa dokunma, normal hasar/olum gecerli olsun
-            if (info.GetHitGroup() == HitGroup_t.HITGROUP_HEAD)
-                return HookResult.Continue;
-
-            if (DEBUG)
-            {
-                System.Console.WriteLine("[DeagleHsOnly] Body/leg vurus engellendi (hasar yok).");
-            }
-
-            // Body/kol/bacak/boyun -> hasari tamamen engelle
-            return HookResult.Handled;
-        }
-        catch (System.Exception ex)
-        {
-            System.Console.WriteLine($"[DeagleHsOnly] HATA: {ex.Message}");
+        var victim = @event.Userid;
+        if (victim == null || !victim.IsValid || victim.PlayerPawn?.Value == null)
             return HookResult.Continue;
-        }
-    }
 
-    private string GetAttackerActiveWeapon(CTakeDamageInfo info)
-    {
-        try
+        var pawn = victim.PlayerPawn.Value;
+        if (!pawn.IsValid || pawn.LifeState != (byte)LifeState_t.LIFE_ALIVE)
+            return HookResult.Continue;
+
+        bool isHeadshot = @event.Hitgroup == HITGROUP_HEAD;
+        bool isDeagle = (@event.Weapon ?? string.Empty).Contains("deagle");
+
+        bool shouldNegateDamage = !isHeadshot && (!OnlyRestrictDeagle || isDeagle);
+
+        if (!shouldNegateDamage)
+            return HookResult.Continue;
+
+        int dmgHealth = @event.DmgHealth;
+        if (dmgHealth > 0)
         {
-            var attackerEntity = info.Attacker.Value;
-            if (attackerEntity == null || !attackerEntity.IsValid)
-                return "";
+            int newHealth = pawn.Health + dmgHealth;
+            if (newHealth > 100) newHealth = 100;
 
-            var attackerPawn = attackerEntity.As<CCSPlayerPawn>();
-            if (attackerPawn == null)
-                return "";
-
-            var controller = attackerPawn.Controller.Value as CCSPlayerController;
-            var activeWeapon = controller?.PlayerPawn?.Value?.WeaponServices?.ActiveWeapon?.Value;
-
-            return activeWeapon?.DesignerName ?? "";
+            pawn.Health = newHealth;
+            Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
         }
-        catch
-        {
-            return "";
-        }
+
+        return HookResult.Continue;
     }
 }

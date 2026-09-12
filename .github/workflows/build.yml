@@ -1,0 +1,27 @@
+name: Build Plugin
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo dosyalarini al
+        uses: actions/checkout@v4
+
+      - name: .NET 8 kur
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Derle (Release)
+        run: dotnet build -c Release
+
+      - name: Derlenen dll'i yukle
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeagleHsOnly-dll
+          path: bin/Release/net8.0/DeagleHsOnly.dll

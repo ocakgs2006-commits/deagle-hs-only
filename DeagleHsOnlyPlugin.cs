@@ -1,4 +1,3 @@
-using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 
 namespace DeagleHsOnly;
@@ -6,52 +5,58 @@ namespace DeagleHsOnly;
 public class DeagleHsOnlyPlugin : BasePlugin
 {
     public override string ModuleName => "Deagle HS Only";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => "2.0.0";
     public override string ModuleAuthor => "Custom";
     public override string ModuleDescription =>
-        "Deagle sadece headshot ile can goturur; body shot hasari etkisiz hale gelir. Diger silahlar (AWP dahil) etkilenmez.";
+        "Deagle sadece headshot ile hasar verir; body/kol/bacak vurusları tamamen engellenir (hasar yok, yavaslama/tagging efekti yok). Diger silahlar (AWP dahil) etkilenmez.";
 
-    // CS2/Source 2 hitgroup degerleri:
-    // 0 = Generic, 1 = Head, 2 = Chest, 3 = Stomach, 4 = LeftArm,
-    // 5 = RightArm, 6 = LeftLeg, 7 = RightLeg, 8 = Neck, 10 = Gear
-    private const int HITGROUP_HEAD = 1;
+    // Konsola detay yazar. Sorun kalmadigindan emin olunca false yapip yeniden derle.
+    private const bool DEBUG = true;
 
     public override void Load(bool hotReload)
     {
-        RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
-        Console.WriteLine("[DeagleHsOnly] Plugin yuklendi.");
+        RegisterListener<Listeners.OnEntityTakeDamagePre>(OnTakeDamagePre);
+        System.Console.WriteLine("[DeagleHsOnly] Plugin yuklendi (pre-damage hook aktif).");
     }
 
-    private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
+    private HookResult OnTakeDamagePre(CBaseEntity entity, CTakeDamageInfo info)
     {
-        // Sadece Deagle vurusları icin devreye gir
-        if (@event.Weapon != "deagle")
-            return HookResult.Continue;
-
-        // Kafadan vurduysa dokunma, normal hasar/olum gecerli olsun
-        if (@event.Hitgroup == HITGROUP_HEAD)
-            return HookResult.Continue;
-
-        var victim = @event.Userid;
-        if (victim == null || !victim.IsValid)
-            return HookResult.Continue;
-
-        var pawn = victim.PlayerPawn.Value;
-        if (pawn == null || !pawn.IsValid)
-            return HookResult.Continue;
-
-        // Vurustan hemen sonraki can + alinan hasar = vurulmadan onceki can.
-        // Body shot'ta bu hasari geri vererek etkisiz hale getiriyoruz.
-        int restoredHealth = @event.Health + @event.DmgHealth;
-        if (restoredHealth > 100)
-            restoredHealth = 100;
-
-        if (pawn.Health > 0) // oyuncu hala hayattaysa geri ver
+        try
         {
-            pawn.Health = restoredHealth;
-            Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
-        }
+            // Sadece oyunculara gelen hasarla ilgilen
+            if (entity.DesignerName != "player")
+                return HookResult.Continue;
 
-        return HookResult.Continue;
+            // Hasari veren silahi bul (Inflictor = hasara sebep olan entity, genelde silah)
+            var inflictor = info.Inflictor.Value;
+            string weaponName = inflictor?.DesignerName ?? "";
+
+            if (DEBUG)
+            {
+                System.Console.WriteLine(
+                    $"[DeagleHsOnly] Hasar -> Weapon={weaponName} Hitgroup={info.GetHitGroup()} Damage={info.Damage}");
+            }
+
+            // Sadece Deagle icin devreye gir
+            if (!weaponName.Contains("deagle"))
+                return HookResult.Continue;
+
+            // Kafadan vurduysa dokunma, normal hasar/olum gecerli olsun
+            if (info.GetHitGroup() == HitGroup_t.HITGROUP_HEAD)
+                return HookResult.Continue;
+
+            // Body/kol/bacak/boyun -> hasari tamamen engelle (Handled = tum hasar surecini iptal eder)
+            if (DEBUG)
+            {
+                System.Console.WriteLine("[DeagleHsOnly] Body/leg vurus engellendi (hasar yok).");
+            }
+
+            return HookResult.Handled;
+        }
+        catch (System.Exception ex)
+        {
+            System.Console.WriteLine($"[DeagleHsOnly] HATA: {ex.Message}");
+            return HookResult.Continue;
+        }
     }
 }

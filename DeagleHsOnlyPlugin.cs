@@ -19,9 +19,14 @@ public class DeagleHsOnlyPlugin : BasePlugin
     public override void Load(bool hotReload)
     {
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt, HookMode.Post);
-        Logger.LogInformation("[DeagleHsOnly] Plugin loaded (v2.1.0).");
+        Logger.LogInformation("[DeagleHsOnly] Plugin loaded v2.1.0");
     }
 
     private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
     {
-        var victim =
+        var victim = @event.Userid;
+        if (victim == null || !victim.IsValid || victim.PlayerPawn?.Value == null)
+            return HookResult.Continue;
+
+        var pawn = victim.PlayerPawn.Value;
+        if

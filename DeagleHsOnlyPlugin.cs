@@ -10,16 +10,16 @@ namespace DeagleHsOnly;
 public class DeagleHsOnlyPlugin : BasePlugin
 {
     public override string ModuleName => "Deagle HS Only";
-    public override string ModuleVersion => "2.1.0";
+    public override string ModuleVersion => "2.2.0";
     public override string ModuleAuthor => "Custom";
-    public override string ModuleDescription => "Only headshots deal damage. All other hits pass through with zero damage.";
+    public override string ModuleDescription => "Deagle: only headshots deal damage, other hits pass through with zero damage. All other weapons behave normally.";
 
     private const int HITGROUP_HEAD = 1;
 
     public override void Load(bool hotReload)
     {
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt, HookMode.Post);
-        Logger.LogInformation("[DeagleHsOnly] Plugin loaded v2.1.0");
+        Logger.LogInformation("[DeagleHsOnly] Plugin loaded v2.2.0");
     }
 
     private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
@@ -32,10 +32,16 @@ public class DeagleHsOnlyPlugin : BasePlugin
         if (!pawn.IsValid)
             return HookResult.Continue;
 
+        string weapon = @event.Weapon ?? string.Empty;
+        bool isDeagle = weapon.Contains("deagle");
+
+        if (!isDeagle)
+            return HookResult.Continue;
+
         bool isHeadshot = @event.Hitgroup == HITGROUP_HEAD;
         int dmgHealth = @event.DmgHealth;
 
-        Logger.LogInformation("[DeagleHsOnly] hitgroup=" + @event.Hitgroup + " weapon=" + @event.Weapon + " dmgHealth=" + dmgHealth + " healthBefore=" + pawn.Health);
+        Logger.LogInformation("[DeagleHsOnly] hitgroup=" + @event.Hitgroup + " weapon=" + weapon + " dmgHealth=" + dmgHealth + " healthBefore=" + pawn.Health);
 
         if (!isHeadshot && dmgHealth > 0)
         {

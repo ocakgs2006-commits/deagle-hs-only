@@ -1,5 +1,7 @@
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
+using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 
 namespace DeagleHsOnly;
@@ -8,28 +10,18 @@ namespace DeagleHsOnly;
 public class DeagleHsOnlyPlugin : BasePlugin
 {
     public override string ModuleName => "Deagle HS Only";
-    public override string ModuleVersion => "3.0.0";
+    public override string ModuleVersion => "2.1.0";
     public override string ModuleAuthor => "Custom";
-    public override string ModuleDescription => "Only headshots deal damage. Everything else is blocked before it is ever applied.";
+    public override string ModuleDescription => "Only headshots deal damage. All other hits pass through with zero damage.";
 
-    // CS2 hitgroup constant for the head.
     private const int HITGROUP_HEAD = 1;
 
     public override void Load(bool hotReload)
     {
-        RegisterListener<Listeners.OnPlayerTakeDamagePre>(OnPlayerTakeDamagePre);
-        Logger.LogInformation("[DeagleHsOnly] Plugin loaded (pre-damage hook, headshot-only).");
+        RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt, HookMode.Post);
+        Logger.LogInformation("[DeagleHsOnly] Plugin loaded (v2.1.0).");
     }
 
-    private HookResult OnPlayerTakeDamagePre(CCSPlayerPawn player, CTakeDamageInfo info)
+    private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
     {
-        if (info.Hitgroup != HITGROUP_HEAD)
-        {
-            // Blocks the hit entirely before any damage is applied.
-            // Bullet effectively passes straight through - zero damage, no health flicker.
-            return HookResult.Handled;
-        }
-
-        return HookResult.Continue;
-    }
-}
+        var victim =

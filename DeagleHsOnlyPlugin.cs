@@ -10,16 +10,48 @@ namespace DeagleHsOnly;
 public class DeagleHsOnlyPlugin : BasePlugin
 {
     public override string ModuleName => "Deagle HS Only";
-    public override string ModuleVersion => "2.2.0";
+    public override string ModuleVersion => "3.0.0";
     public override string ModuleAuthor => "Custom";
-    public override string ModuleDescription => "Deagle: only headshots deal damage, other hits pass through with zero damage. All other weapons behave normally.";
+    public override string ModuleDescription => "Deagle: only headshots deal damage. Everyone also has infinite ammo (clip never empties).";
 
     private const int HITGROUP_HEAD = 1;
 
     public override void Load(bool hotReload)
     {
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt, HookMode.Post);
-        Logger.LogInformation("[DeagleHsOnly] Plugin loaded v2.2.0");
+        RegisterListener<Listeners.OnTick>(OnTick);
+        Logger.LogInformation("[DeagleHsOnly] Plugin loaded v3.0.0 (infinite ammo)");
+    }
+
+    private void OnTick()
+    {
+        foreach (var player in Utilities.GetPlayers())
+        {
+            if (player == null || !player.IsValid || !player.PawnIsAlive)
+                continue;
+
+            var pawn = player.PlayerPawn.Value;
+            if (pawn == null || !pawn.IsValid)
+                continue;
+
+            var weaponServices = pawn.WeaponServices;
+            if (weaponServices == null)
+                continue;
+
+            var activeWeapon = weaponServices.ActiveWeapon.Value;
+            if (activeWeapon == null || !activeWeapon.IsValid)
+                continue;
+
+            var vdata = activeWeapon.VData;
+            if (vdata == null)
+                continue;
+
+            if (vdata.MaxClip1 > 0 && activeWeapon.Clip1 < vdata.MaxClip1)
+            {
+                activeWeapon.Clip1 = vdata.MaxClip1;
+                Utilities.SetStateChanged(activeWeapon, "CBasePlayerWeapon", "m_iClip1");
+            }
+        }
     }
 
     private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
